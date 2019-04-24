@@ -1,0 +1,9 @@
+{
+  "name": "doh-1",
+  "description": "Deploy Gost to Heroku.",
+  "keywords": ["doh-1"],
+  },
+  "stack": "container",
+  "website": "https://github.com/warther/doh-1",
+  "repository": "https://github.com/warther/doh-1"
+ }
