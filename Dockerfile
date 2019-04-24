@@ -1,46 +1,24 @@
-FROM alpine
+FROM golang:alpine AS build
 
-ARG BUILD_DATE
-ARG VCS_REF
-ARG VERSION
+RUN apk add --update git make build-base npm && \
+    rm -rf /var/cache/apk/*
 
-LABEL \
-    org.label-schema.vendor="The Goofball - goofball222@gmail.com" \
-    org.label-schema.url="https://github.com/goofball222/dns-over-https" \
-    org.label-schema.name="DNS over HTTPS Server/Client" \
-    org.label-schema.version=$VERSION \
-    org.label-schema.vcs-url="https://github.com/goofball222/dns-over-https.git" \
-    org.label-schema.vcs-ref=$VCS_REF \
-    org.label-schema.build-date=$BUILD_DATE \
-    org.label-schema.license="Apache-2.0" \
-    org.label-schema.schema-version="1.0"
+WORKDIR /src/AdGuardHome
+COPY . /src/AdGuardHome
+RUN make
 
-ENV \
-    DEBUG=false \
-    GOPATH="/go" \
-    GOCACHE=off \
-    PGID=999 \
-    PUID=999
+FROM alpine:latest
+LABEL maintainer="AdGuard Team <devteam@adguard.com>"
 
-WORKDIR /opt/dns-over-https
+# Update CA certs
+RUN apk --no-cache --update add ca-certificates && \
+    rm -rf /var/cache/apk/* && mkdir -p /opt/adguardhome
 
-COPY root /
+COPY --from=build /src/AdGuardHome/AdGuardHome /opt/adguardhome/AdGuardHome
 
-RUN \
-    set -x \
-    && delgroup ping \
-    && addgroup -g $PGID doh \
-    && adduser -D -G doh -u $PUID doh \
-    && apk add -q --no-cache --virtual .build-deps \
-       gcc git go musl-dev \
-    && apk add -q --no-cache \
-        bash ca-certificates shadow su-exec tzdata \
-    && go get github.com/m13253/dns-over-https/doh-server \
-    && go get github.com/m13253/dns-over-https/doh-client \
-    && cp -r /go/bin/* /usr/local/bin \
-    && apk del -q --purge .build-deps \
-    && rm -rf /go /root/.cache/* /tmp/* /var/cache/apk/*
+EXPOSE 53/tcp 53/udp 67/tcp 67/udp 68/tcp 68/udp 80/tcp 443/tcp 853/tcp 853/udp 3000/tcp
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
 
-CMD ["doh-server"]
+ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
+CMD ["-h", "0.0.0.0", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
