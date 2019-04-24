@@ -1,0 +1,13 @@
+{
+  "name": "doh-1",
+  "description": "Deploy dns over https to Heroku.",
+  "keywords": ["doh"]
+  },
+
+  "website": "https://github.com/warther/doh-1",
+
+  "repository": "https://github.com/warther/doh-1",
+
+  "stack": "container"
+
+ }
