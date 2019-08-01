@@ -30,7 +30,7 @@ volume /etc/doh-server
 
 copy --from=Builder /usr/bin/doh-server /usr/bin/doh-server
 
-expose 80
+expose 443
 
 workdir /
 
