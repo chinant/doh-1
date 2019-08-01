@@ -1,24 +1,42 @@
-FROM golang:alpine AS build
+##
+# I refer to the following file.
+# https://github.com/piccobit/dns-over-https-docker/blob/master/Dockerfile
 
-RUN apk add --update git make build-base npm && \
-    rm -rf /var/cache/apk/*
+# stage 1 - build
 
-WORKDIR /src/AdGuardHome
-COPY . /src/AdGuardHome
-RUN make
+from golang:latest as Builder
 
-FROM alpine:latest
-LABEL maintainer="AdGuard Team <devteam@adguard.com>"
+env DOH_VERSION=2.0.1
 
-# Update CA certs
-RUN apk --no-cache --update add ca-certificates && \
-    rm -rf /var/cache/apk/* && mkdir -p /opt/adguardhome
+add https://github.com/m13253/dns-over-https/archive/v${DOH_VERSION}.tar.gz /tmp
 
-COPY --from=build /src/AdGuardHome/AdGuardHome /opt/adguardhome/AdGuardHome
+run tar -xf /tmp/v${DOH_VERSION}.tar.gz -C /tmp && \
+    cd /tmp/dns-over-https-${DOH_VERSION} && \
+    make && \
+    cp /tmp/dns-over-https-${DOH_VERSION}/doh-server/doh-server \
+        /usr/bin/doh-server
 
-EXPOSE 80/tcp 443/tcp 853/tcp 853/udp 3000/tcp
+# stage 2 - make Image
 
-VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
+from alpine:latest
 
-ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
-CMD ["-h", "0.0.0.0", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
+run apk upgrade && \
+    apk add --update libc6-compat libstdc++ && \
+    apk add --no-cache ca-certificates && \
+    addgroup -g 1500 doh && \
+    adduser -D -G doh -u 1500 doh
+
+volume /etc/doh-server
+
+copy --from=Builder /usr/bin/doh-server /usr/bin/doh-server
+
+expose 80
+
+workdir /
+
+user doh
+
+label description="doh-server-docker with dockerizing m13253's software"
+label maintainer="smallsunshine <dnsoverhttps.dev>"
+
+cmd ["doh-server", "-conf", "/etc/doh-server/doh-server.conf", "-verbose"]
