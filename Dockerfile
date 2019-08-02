@@ -27,10 +27,10 @@ run apk upgrade && \
     adduser -D -G doh -u 1500 doh
 
 volume /etc/doh-server
-env PORT＝80
+
 copy --from=Builder /usr/bin/doh-server /usr/bin/doh-server
 
-expose $PORT
+expose 80
 
 workdir /
 
