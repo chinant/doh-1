@@ -1,42 +1,32 @@
-##
-# I refer to the following file.
-# https://github.com/piccobit/dns-over-https-docker/blob/master/Dockerfile
-
-# stage 1 - build
-
-from golang:latest as Builder
-
-env DOH_VERSION=2.0.1
-
-add https://github.com/m13253/dns-over-https/archive/v${DOH_VERSION}.tar.gz /tmp
-
-run tar -xf /tmp/v${DOH_VERSION}.tar.gz -C /tmp && \
-    cd /tmp/dns-over-https-${DOH_VERSION} && \
-    make && \
-    cp /tmp/dns-over-https-${DOH_VERSION}/doh-server/doh-server \
-        /usr/bin/doh-server
-
-# stage 2 - make Image
-
-from alpine:latest
-
-run apk upgrade && \
-    apk add --update libc6-compat libstdc++ && \
-    apk add --no-cache ca-certificates && \
-    addgroup -g 1500 doh && \
-    adduser -D -G doh -u 1500 doh
-
-volume /etc/doh-server
-
-copy --from=Builder /usr/bin/doh-server /usr/bin/doh-server
-
-expose 80
-
-workdir /
-
-user doh
-
-label description="doh-server-docker with dockerizing m13253's software"
-label maintainer="smallsunshine <dnsoverhttps.dev>"
-
-cmd ["doh-server", "-conf", "/etc/doh-server/doh-server.conf", "-verbose"]
+FROM golang:alpine AS build
+ 
+RUN apk add --update git make build-base npm && \
+    rm -rf /var/cache/apk/*
+ 
+WORKDIR /src/AdGuardHome
+COPY . /src/AdGuardHome
+RUN make
+ 
+FROM alpine:latest
+LABEL maintainer="AdGuard Team <devteam@adguard.com>"
+ 
+# Update CA certs
+RUN apk --no-cache --update add ca-certificates libcap && \
+    rm -rf /var/cache/apk/* && \
+    mkdir -p /opt/adguardhome/conf /opt/adguardhome/work && \
+    chown -R nobody: /opt/adguardhome
+ 
+COPY --from=build --chown=nobody:nogroup /src/AdGuardHome/AdGuardHome /opt/adguardhome/AdGuardHome
+ 
+RUN setcap 'cap_net_bind_service=+eip' /opt/adguardhome/AdGuardHome
+ 
+EXPOSE 53/tcp 53/udp 67/udp 68/udp 80/tcp 443/tcp 853/tcp 3000/tcp
+ 
+VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
+ 
+WORKDIR /opt/adguardhome/work
+ 
+#USER nobody
+ 
+ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
+CMD ["-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work", "--no-check-update"]
