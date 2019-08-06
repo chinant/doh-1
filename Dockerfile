@@ -1,32 +1,79 @@
-FROM golang:alpine AS build
- 
-RUN apk add --update git make build-base npm && \
-    rm -rf /var/cache/apk/*
- 
-WORKDIR /src/AdGuardHome
-COPY . /src/AdGuardHome
-RUN make
- 
-FROM alpine:latest
-LABEL maintainer="AdGuard Team <devteam@adguard.com>"
- 
-# Update CA certs
-RUN apk --no-cache --update add ca-certificates libcap && \
-    rm -rf /var/cache/apk/* && \
-    mkdir -p /opt/adguardhome/conf /opt/adguardhome/work && \
-    chown -R nobody: /opt/adguardhome
- 
-COPY --from=build --chown=nobody:nogroup /src/AdGuardHome/AdGuardHome /opt/adguardhome/AdGuardHome
- 
-RUN setcap 'cap_net_bind_service=+eip' /opt/adguardhome/AdGuardHome
- 
-EXPOSE 53/tcp 53/udp 67/udp 68/udp 80/tcp 443/tcp 853/tcp 3000/tcp
- 
-VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
- 
-WORKDIR /opt/adguardhome/work
- 
-#USER nobody
- 
-ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
-CMD ["-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work", "--no-check-update"]
+FROM bitnami/minideb:stretch as build
+
+RUN install_packages \
+      curl \
+      ca-certificates \
+      git \
+      autoconf \
+      automake \
+      g++ \
+      protobuf-compiler \
+      zlib1g-dev \
+      libncurses5-dev \
+      libssl-dev \
+      pkg-config \
+      libprotobuf-dev \
+      make
+
+# Install Golang
+ENV GOROOT=/go
+ENV GOPATH=/go-home
+ENV PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+RUN curl -L -o go.tar.gz https://dl.google.com/go/go1.9.2.linux-amd64.tar.gz
+RUN mkdir -p $GOPATH/bin
+RUN tar -C / -xzf go.tar.gz
+
+ENV BASE=$GOPATH/src/browsh/interfacer
+WORKDIR $BASE
+ADD interfacer $BASE
+
+# Build Browsh
+RUN $BASE/contrib/build_browsh.sh
+
+
+###########################
+# Actual final Docker image
+###########################
+FROM bitnami/minideb:stretch
+
+ENV HOME=/app
+WORKDIR /app
+
+COPY --from=build /go-home/src/browsh/interfacer/browsh /app/browsh
+
+RUN install_packages \
+      xvfb \
+      libgtk-3-0 \
+      curl \
+      ca-certificates \
+      bzip2 \
+      libdbus-glib-1-2 \
+      procps
+
+# Block ads, etc. This includes porn just because this image is also used on the
+# public SSH demo: `ssh brow.sh`.
+RUN curl -o /etc/hosts https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn-social/hosts
+
+# Don't use root
+RUN useradd -m user --home /app
+RUN chown user:user /app
+USER user
+
+# Setup Firefox
+ENV PATH="${HOME}/bin/firefox:${PATH}"
+ADD .travis.yml .
+ADD interfacer/contrib/setup_firefox.sh .
+RUN ./setup_firefox.sh
+RUN rm setup_firefox.sh && rm .travis.yml
+
+# Firefox behaves quite differently to normal on its first run, so by getting
+# that over and done with here when there's no user to be dissapointed means
+# that all future runs will be consistent.
+RUN TERM=xterm script \
+  --return \
+  -c "/app/browsh" \
+  /dev/null \
+  >/dev/null & \
+  sleep 10
+
+CMD ["/app/browsh"]
