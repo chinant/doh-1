@@ -29,7 +29,7 @@ LABEL maintainer="HD Stich <hd.stich.io>"
 # ENV DNSOVERHTTPS_BINARY=stdiscosrv-linux-amd64-${DNSOVERHTTPS_VERSION}
 
 RUN apk upgrade \
-    && apk add --update libc6-compat libstdc++ \
+    && apk add --update libc6-compat nano sudo password libstdc++ \
     && apk add --no-cache ca-certificates
 
 RUN addgroup -g 1000 dnsoverhttps \
