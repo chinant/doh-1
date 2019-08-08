@@ -29,7 +29,7 @@ LABEL maintainer="HD Stich <hd.stich.io>"
 # ENV DNSOVERHTTPS_BINARY=stdiscosrv-linux-amd64-${DNSOVERHTTPS_VERSION}
 
 RUN apk upgrade \
-    && apk add --update libc6-compat nano sudo libstdc++ \
+    && apk add --update libc6-compat nano sudo bash libstdc++ \
     && apk add --no-cache ca-certificates
 
 RUN addgroup -g 1000 dnsoverhttps \
@@ -41,7 +41,7 @@ COPY --from=builder /usr/bin/doh-client /usr/bin/doh-client
 
 VOLUME /etc/dns-over-https
 
-EXPOSE 80
+EXPOSE 443
 
 WORKDIR /
 
