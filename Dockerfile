@@ -1,42 +1,50 @@
+##
+# Stage 1 - Build dns-over-https binary
+#
 
-# I refer to the following file.
-# https://github.com/piccobit/dns-over-https-docker/blob/master/Dockerfile
+FROM golang:1.11 as builder
+
+ENV DNSOVERHTTPS_VERSION=1.4.2
+
+ADD https://github.com/m13253/dns-over-https/archive/v${DNSOVERHTTPS_VERSION}.tar.gz /tmp
+
+RUN tar -xf /tmp/v${DNSOVERHTTPS_VERSION}.tar.gz -C /tmp \
+    && cd /tmp/dns-over-https-${DNSOVERHTTPS_VERSION} \
+    && make \
+    && cp /tmp/dns-over-https-${DNSOVERHTTPS_VERSION}/doh-server/doh-server /usr/bin/doh-server \
+    && cp /tmp/dns-over-https-${DNSOVERHTTPS_VERSION}/doh-client/doh-client /usr/bin/doh-client \
+    && echo Build successful!
+
+
+##
+# Stage 2 - Docker image
+#
+
+# Use Alpine Linux as our base image so that we minimize the overall size our final container, and minimize the surface area of packages that could be out of date.
+FROM alpine:3.8@sha256:621c2f39f8133acb8e64023a94dbdf0d5ca81896102b9e57c0dc184cadaf5528
+
+LABEL description="Docker container for running your own DNS-over-HTTPS server."
+LABEL maintainer="HD Stich <hd.stich.io>"
+
+# ENV DNSOVERHTTPS_BINARY=stdiscosrv-linux-amd64-${DNSOVERHTTPS_VERSION}
+
+RUN apk upgrade \
+    && apk add --update libc6-compat libstdc++ \
+    && apk add --no-cache ca-certificates
+
+RUN addgroup -g 1000 dnsoverhttps \
+    && adduser -D -G dnsoverhttps -u 1000 dnsoverhttps \
+    && mkdir -p /etc/dns-over-https
+
+COPY --from=builder /usr/bin/doh-server /usr/bin/doh-server
+COPY --from=builder /usr/bin/doh-client /usr/bin/doh-client
+
+VOLUME /etc/dns-over-https
+
+EXPOSE 80
+
+WORKDIR /
+
+USER dnsoverhttps
  
-# stage 1 - build
- 
-from golang:latest as Builder
- 
-env DOH_VERSION=2.0.1
- 
-add https://github.com/m13253/dns-over-https/archive/v${DOH_VERSION}.tar.gz /tmp
- 
-run tar -xf /tmp/v${DOH_VERSION}.tar.gz -C /tmp && \
-    cd /tmp/dns-over-https-${DOH_VERSION} && \
-    make && \
-    cp /tmp/dns-over-https-${DOH_VERSION}/doh-server/doh-server \
-        /usr/bin/doh-server
- 
-# stage 2 - make Image
- 
-from alpine:latest
- 
-run apk upgrade && \
-    apk add --update libc6-compat libstdc++ && \
-    apk add --no-cache ca-certificates && \
-    addgroup -g 1500 doh && \
-    adduser -D -G doh -u 1500 doh
- 
-volume /etc/doh-server
- 
-copy --from=Builder /usr/bin/doh-server /usr/bin/doh-server
- 
-expose 80
- 
-workdir /
- 
-user doh
- 
-label description="doh-server-docker with dockerizing m13253's software"
-label maintainer="smallsunshine <dnsoverhttps.dev>"
- 
-cmd ["doh-server", "-conf", "/etc/doh-server/doh-server.conf", "-verbose"]
+CMD ["doh-server", "-conf", "/etc/doh-server/doh-server.conf", "-verbose"]
