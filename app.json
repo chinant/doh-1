@@ -4,5 +4,9 @@
   "keywords": ["dns over https"],
   "website": "https://github.com/warther/doh-1",
   "repository": "https://github.com/warther/doh-1",
+  "PORT": {
+            "value": "80",
+            "required": false
+        },
   "stack": "container"
  }
