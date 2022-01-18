@@ -2,7 +2,7 @@
 # Stage 1 - Build dns-over-https binary
 #
 
-FROM golang:1.13 as builder
+FROM go1.17 as builder
 
 ENV DNSOVERHTTPS_VERSION=2.3.0
 
