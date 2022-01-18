@@ -8,5 +8,5 @@
             "value": "80",
             "required": false
         },
-  "stack": "Heroku-20"
+  #"stack": "Heroku-20"
  }
