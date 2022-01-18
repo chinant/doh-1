@@ -2,11 +2,11 @@
   "name": "doh",
   "description": "Deploy doh to Heroku.",
   "keywords": ["dns over https"],
-  "website": "https://github.com/warther/doh-1",
-  "repository": "https://github.com/warther/doh-1",
+  "website": "https://github.com/chinant/doh-1",
+  "repository": "https://github.com/chinant/doh-1",
   "PORT": {
             "value": "80",
             "required": false
         },
-  "stack": "container"
+  "stack": "Heroku-20"
  }
